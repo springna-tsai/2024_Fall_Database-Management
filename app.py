@@ -21,7 +21,7 @@ def crowd_flow_spectrum():
     })
 
     norm = mcolors.Normalize(vmin=0, vmax=len(time_slots)-1)
-    cmap = plt.get_cmap('viridis')  # 可以選擇不同的顏色映射
+    cmap = plt.get_cmap('viridis')
 
     df['color'] = [cmap(norm(i)) for i in range(len(df))]
 
@@ -154,8 +154,8 @@ def opportunity_analysis_page():
 def competitive_market_page():
     # 市場資料
     market_data = [
-        {"業務項目": "零售業", "店鋪數量": 5, "平均資本額": 500000},
-        {"業務項目": "餐飲業", "店鋪數量": 3, "平均資本額": 600000},
+        {"營業項目": "零售業", "店鋪數量": 5, "平均資本額": 500000},
+        {"營業項目": "餐飲業", "店鋪數量": 3, "平均資本額": 600000},
     ]
 
     market_df = pd.DataFrame(market_data)
@@ -164,7 +164,7 @@ def competitive_market_page():
     
     # 使用 st.columns 模擬表格標題
     col1, col2, col3, col4 = st.columns([3, 3, 3, 2])
-    col1.markdown("**業務項目**")
+    col1.markdown("**營業項目**")
     col2.markdown("**店鋪數量**")
     col3.markdown("**平均資本額 (元)**")
     col4.markdown("**操作**")
@@ -172,14 +172,14 @@ def competitive_market_page():
     # 顯示每一行市場資料
     for idx, row in market_df.iterrows():
         col1, col2, col3, col4 = st.columns([3, 3, 3, 2])
-        col1.write(row["業務項目"])
+        col1.write(row["營業項目"])
         col2.write(row["店鋪數量"])
         col3.write(f"{row['平均資本額']:,}")
         
-        # 為每個業務項目創建按鈕
+        # 每個營業項目都建"查看店家"button
         if col4.button("查看店家", key=f"view_stores_{idx}"):
-            st.session_state.selected_business = row["業務項目"]
-            st.experimental_rerun()  # 重新加載頁面並顯示選擇的業務
+            st.session_state.selected_business = row["營業項目"]
+            st.experimental_rerun()
 
     # 假資料：店鋪資訊
     store_data = [
@@ -193,12 +193,12 @@ def competitive_market_page():
 
     store_df = pd.DataFrame(store_data)
     
-    # 顯示選擇的業務的店鋪資料
+    # 顯示選擇的營業項目的店鋪資料
     if "selected_business" in st.session_state:
         selected_business = st.session_state.selected_business
         filtered_stores = filter_stores_by_business(selected_business, store_df)
         
-        # 顯示對應業務的店鋪資料
+        # 該營業項目的店鋪統計資料
         st.write(f"### {selected_business} 顯示的 Top 5 資本額店鋪")
         col1, col2, col3, col4 = st.columns([2, 5, 3, 3])
         col1.markdown("**店名**")
@@ -214,8 +214,6 @@ def competitive_market_page():
             col4.markdown(f"[Google 地圖連結](https://www.google.com/maps?q={row['緯度']},{row['經度']})", unsafe_allow_html=True)
 
 def filter_stores_by_business(business_type, store_df):
-    # 假設業務項目與店鋪關聯邏輯（此處需根據實際情況調整）
-    # 例如，零售業對應店鋪A, B, C；餐飲業對應店鋪D, E, F
     if business_type == "零售業":
         return store_df[store_df["店名"].isin(["店鋪A", "店鋪B", "店鋪C"])]
     elif business_type == "餐飲業":
@@ -307,20 +305,20 @@ def rent_store_page():
         ]
         st.session_state.selected_trade_area = None
 
-    # 顯示查詢結果
+    # 查詢結果
     if "trade_area_details" in st.session_state:
         st.subheader("商圈資訊")
         for idx, area in enumerate(st.session_state.trade_area_details):
-            # 使用 expander 顯示商圈資訊
+            # 商圈資訊
             with st.expander(f"{area['name']} - 周邊平均租金 {area['rent']}"):
                 st.write(f"**地址**: {area['address']}")
                 st.write(f"**類型**: {area['type']}")
 
-                # 按鈕顯示該商圈的店面出租資訊
+                # 建 button -- 顯示該商圈的店面出租資訊
                 if st.button(f"顯示 {area['name']} 附近店面出租資訊", key=f"show_rentals_{idx}"):
                     st.session_state.selected_trade_area = area
 
-    # 動態顯示店面出租資訊
+    # 店面出租資訊
     if "selected_trade_area" in st.session_state and st.session_state.selected_trade_area:
         area = st.session_state.selected_trade_area
         st.subheader(f"{area['name']} 附近店面出租資訊")
@@ -329,17 +327,17 @@ def rent_store_page():
         # 分成兩個 column 顯示
         cols = st.columns(2)
         for i, rental in enumerate(rentals):
-            col = cols[i % 2]  # 左右分配列
+            col = cols[i % 2]
             with col:
                 st.write(f"### {rental['address']} - {rental['rent']}")
                 st.write(f"**地址**: {rental['address']}")
                 st.write(f"**租金**: {rental['rent']} ({rental['rent_ping']})")
                 st.write(f"**坪數**: {rental['size']}")
 
-                # 使用 columns 排列按鈕
+                # 建兩個 button
                 btn_col1, btn_col2 = st.columns(2)
                 with btn_col1:
-                    if st.button(f"聯絡房東", key=f"contact_{rental['address']}"):
+                    if st.button(f"聯絡房仲", key=f"contact_{rental['address']}"):
                         landlord = rental['landlord']
                         st.write(f"聯絡人: {landlord['name']}")
                         st.write(f"電話: {landlord['phone']}")
@@ -350,7 +348,7 @@ def rent_store_page():
 
     if st.session_state.get("page", None) == "analysis_page":
         st.session_state.page = None
-        # 顯示兩個tab
+        # 兩個 tab
         tabs = st.tabs(["商機分析", "競爭市場"])
         with tabs[0]:
             opportunity_analysis_page()
@@ -581,18 +579,18 @@ def main():
     if "logged_in" not in st.session_state:
         st.session_state.logged_in = False
 
-    # 初始頁面：選擇角色
+    # 選擇角色
     if "role" not in st.session_state:
         st.session_state.role = None
     
     if st.session_state.role is None:
-        col1, col2, col3 = st.columns([2, 1, 2])  # 三列佈局，中間列較寬
+        col1, col2, col3 = st.columns([2, 1, 2])
         with col1:
-            st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)  # 空白分隔
+            st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
             if st.button("🙋‍♂️ 我是業者", key="business_button"):
                 st.session_state.role = "business"
         with col3:
-            st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)  # 按鈕間距
+            st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
             if st.button("💁‍♂️ 我是房仲", key="landlord_button"):
                 st.session_state.role = "landlord"
     
