@@ -151,8 +151,8 @@ def opportunity_analysis_page():
         st.subheader("性別分布")
         gender_distribution_page()
 
-# 競爭市場頁面
 def competitive_market_page():
+    # 市場資料
     market_data = [
         {"業務項目": "零售業", "店鋪數量": 5, "平均資本額": 500000},
         {"業務項目": "餐飲業", "店鋪數量": 3, "平均資本額": 600000},
@@ -161,9 +161,27 @@ def competitive_market_page():
     market_df = pd.DataFrame(market_data)
 
     st.write("### 競爭市場概覽：")
-    st.table(market_df)
+    
+    # 使用 st.columns 模擬表格標題
+    col1, col2, col3, col4 = st.columns([3, 3, 3, 2])
+    col1.markdown("**業務項目**")
+    col2.markdown("**店鋪數量**")
+    col3.markdown("**平均資本額 (元)**")
+    col4.markdown("**操作**")
+    
+    # 顯示每一行市場資料
+    for idx, row in market_df.iterrows():
+        col1, col2, col3, col4 = st.columns([3, 3, 3, 2])
+        col1.write(row["業務項目"])
+        col2.write(row["店鋪數量"])
+        col3.write(f"{row['平均資本額']:,}")
+        
+        # 為每個業務項目創建按鈕
+        if col4.button("查看店家", key=f"view_stores_{idx}"):
+            st.session_state.selected_business = row["業務項目"]
+            st.experimental_rerun()  # 重新加載頁面並顯示選擇的業務
 
-    # 假資料
+    # 假資料：店鋪資訊
     store_data = [
         {"店名": "店鋪A", "地址": "台北市信義區松仁路123號", "資本額": 1000000, "經度": 121.5654, "緯度": 25.0330},
         {"店名": "店鋪B", "地址": "台北市中正區公園路30-1號", "資本額": 800000, "經度": 121.5070, "緯度": 25.0320},
@@ -174,21 +192,36 @@ def competitive_market_page():
     ]
 
     store_df = pd.DataFrame(store_data)
-    top_stores = store_df.sort_values(by="資本額", ascending=False).head(5)
-
-    for row in market_data:
-        with st.expander(f"{row['業務項目']} - {row['店鋪數量']}家店鋪"):
-            st.write(f"**店鋪數量**: {row['店鋪數量']}家")
-            st.write(f"**平均資本額**: {row['平均資本額']}元")
-            # Link to show the top 5 stores for that business type
-            st.write("點擊 [這裡] 查看店家")
     
-    st.write("### Top 5 資本額店鋪")
-    top_stores['詳情'] = top_stores.apply(
-        lambda row: f"[Google 地圖連結](https://www.google.com/maps?q={row['緯度']},{row['經度']})", axis=1
-    )
-    st.table(top_stores[['店名', '地址', '資本額', '詳情']])
+    # 顯示選擇的業務的店鋪資料
+    if "selected_business" in st.session_state:
+        selected_business = st.session_state.selected_business
+        filtered_stores = filter_stores_by_business(selected_business, store_df)
+        
+        # 顯示對應業務的店鋪資料
+        st.write(f"### {selected_business} 顯示的 Top 5 資本額店鋪")
+        col1, col2, col3, col4 = st.columns([2, 5, 3, 3])
+        col1.markdown("**店名**")
+        col2.markdown("**地址**")
+        col3.markdown("**資本額 (元)**")
+        col4.markdown("**詳情**")
+        
+        for idx, row in filtered_stores.iterrows():
+            col1, col2, col3, col4 = st.columns([2, 5, 3, 3])
+            col1.write(row["店名"])
+            col2.write(row["地址"])
+            col3.write(f"{row['資本額']:,}")
+            col4.markdown(f"[Google 地圖連結](https://www.google.com/maps?q={row['緯度']},{row['經度']})", unsafe_allow_html=True)
 
+def filter_stores_by_business(business_type, store_df):
+    # 假設業務項目與店鋪關聯邏輯（此處需根據實際情況調整）
+    # 例如，零售業對應店鋪A, B, C；餐飲業對應店鋪D, E, F
+    if business_type == "零售業":
+        return store_df[store_df["店名"].isin(["店鋪A", "店鋪B", "店鋪C"])]
+    elif business_type == "餐飲業":
+        return store_df[store_df["店名"].isin(["店鋪D", "店鋪E", "店鋪F"])]
+    else:
+        return pd.DataFrame()
 
 def rent_store_page():
     st.title("🔍 我要租店面")
@@ -203,38 +236,19 @@ def rent_store_page():
     # 輸入理想開店地點 - 必填項目
     st.subheader("請至少輸入一個心目中的理想開店地點後，按 “進行查詢”")
 
-    # 1. 選擇劃分依據
-    location_type = st.selectbox(
-        "請選擇劃分依據（區域別、商圈名稱）",
-        options=["區域別", "商圈名稱"],
-        help="至少選擇一個劃分依據"
-    )
-
-    # 2. 選擇具體的地點
+    # 1. 選擇具體的地點
     districts = [
         "中正區", "大同區", "中山區", "松山區", "大安區", "萬華區", "信義區", "士林區", "北投區",
         "內湖區", "南港區", "文山區"
     ]
-    shopping_districts = [
-        "東區", "西門町", "信義商圈", "士林夜市", "永康街", "南京東路商圈", "忠孝東路商圈",
-        "南京三民商圈", "松山文創園區", "華山文創園區", "大安區", "北門商圈", "南門市場"
-    ]
 
-    if "區域別" in location_type:
-        selected_districts = st.multiselect(
+    selected_districts = st.multiselect(
             "選擇區域別",
             options=districts,
             help="選擇您理想開店的區域"
         )
 
-    if "商圈名稱" in location_type:
-        selected_shopping_districts = st.multiselect(
-            "選擇商圈名稱",
-            options=shopping_districts,
-            help="選擇您理想開店的商圈"
-        )
-
-    # 3. 租金預算
+    # 2. 租金預算
     ping = st.slider(
         "選擇空間大小（坪）",
         min_value=0,
@@ -244,7 +258,7 @@ def rent_store_page():
         help="選擇您的店面空間需求"
     )
     
-    # 4. 租金預算
+    # 3. 租金預算
     rent_budget = st.slider(
         "選擇租金預算（每月）",
         min_value=10000,
@@ -254,7 +268,7 @@ def rent_store_page():
         help="選擇您的租金預算範圍"
     )
 
-    # 5. 營業項目
+    # 4. 營業項目
     business_type = st.multiselect(
         "選擇營業項目",
         options=[
@@ -268,46 +282,72 @@ def rent_store_page():
 
     # 進行查詢 button
     if st.button("進行查詢"):
+        # 商圈資料
         st.session_state.trade_area_details = [
-            {"name": "商圈 A", "type": "玩", "address": "地址 A", "rent": "93,000/月", "contact": {"name": "聯絡人 A", "phone": "0982647283", "email": "iqjdoc@gmail.com"}},
-            {"name": "商圈 B", "type": "吃", "address": "地址 B", "rent": "76,000/月", "contact": {"name": "聯絡人 B", "phone": "0926495120", "email": "1004njcsn@gmail.com"}},
+            {
+                "name": "商圈 A",
+                "type": "玩",
+                "address": "地址 A",
+                "rent": "93,000/月",
+                "rentals": [
+                    {"address": "出租地址 1", "rent": "73,000/月", "rent_ping": "2,433/坪", "size": "30 坪", "landlord": {"name": "章先生", "phone": "0927464741"}},
+                    {"address": "出租地址 2", "rent": "85,000/月", "rent_ping": "1,700/坪", "size": "50 坪", "landlord": {"name": "洪小姐", "phone": "0998876232"}},
+                ],
+            },
+            {
+                "name": "商圈 B",
+                "type": "吃",
+                "address": "地址 B",
+                "rent": "76,000/月",
+                "rentals": [
+                    {"address": "出租地址 3", "rent": "95,000/月", "rent_ping": "1,900/坪", "size": "50 坪", "landlord": {"name": "林先生", "phone": "0911234567"}},
+                    {"address": "出租地址 4", "rent": "78,000/月", "rent_ping": "2,600/坪", "size": "30 坪", "landlord": {"name": "張小姐", "phone": "0987654321"}},
+                ],
+            },
         ]
-        st.session_state.rental_details = [
-            {"address": "出租地址 1", "rent": "73,000/月", "rent_ping": "2,433/坪", "size": "30 坪", "landlord": {"name": "章先生","phone": "0927464741", "email": "xi09312@gmail.com"}},
-            {"address": "出租地址 2", "rent": "85,000/月", "rent_ping": "1,700/坪", "size": "50 坪", "landlord": {"name": "洪小姐", "phone": "0998876232", "email": "snmo8j9ed@gmail.com"}},
-        ]
+        st.session_state.selected_trade_area = None
 
     # 顯示查詢結果
-    if st.session_state.trade_area_details:
+    if "trade_area_details" in st.session_state:
         st.subheader("商圈資訊")
-        for area in st.session_state.trade_area_details:
+        for idx, area in enumerate(st.session_state.trade_area_details):
+            # 使用 expander 顯示商圈資訊
             with st.expander(f"{area['name']} - 周邊平均租金 {area['rent']}"):
                 st.write(f"**地址**: {area['address']}")
                 st.write(f"**類型**: {area['type']}")
-                if st.button(f"想進一步了解 {area['name']}", key=f"area_{area['name']}"):
-                    contact = area['contact']
-                    st.write(f"聯絡人: {contact['name']}")
-                    st.write(f"電話: {contact['phone']}")
-                    st.write(f"Email: {contact['email']}")
 
-    if st.session_state.rental_details:
-        st.subheader("附近店面出租資訊")
-        for rental in st.session_state.rental_details:
-            with st.expander(f"{rental['address']} - {rental['rent']}"):
+                # 按鈕顯示該商圈的店面出租資訊
+                if st.button(f"顯示 {area['name']} 附近店面出租資訊", key=f"show_rentals_{idx}"):
+                    st.session_state.selected_trade_area = area
+
+    # 動態顯示店面出租資訊
+    if "selected_trade_area" in st.session_state and st.session_state.selected_trade_area:
+        area = st.session_state.selected_trade_area
+        st.subheader(f"{area['name']} 附近店面出租資訊")
+        rentals = area["rentals"]
+
+        # 分成兩個 column 顯示
+        cols = st.columns(2)
+        for i, rental in enumerate(rentals):
+            col = cols[i % 2]  # 左右分配列
+            with col:
+                st.write(f"### {rental['address']} - {rental['rent']}")
                 st.write(f"**地址**: {rental['address']}")
-                st.write(f"**租金**: {rental['rent']}; {rental['rent_ping']}")
+                st.write(f"**租金**: {rental['rent']} ({rental['rent_ping']})")
                 st.write(f"**坪數**: {rental['size']}")
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    if st.button(f"聯絡房東 ({rental['address']})"):
+
+                # 使用 columns 排列按鈕
+                btn_col1, btn_col2 = st.columns(2)
+                with btn_col1:
+                    if st.button(f"聯絡房東", key=f"contact_{rental['address']}"):
                         landlord = rental['landlord']
                         st.write(f"聯絡人: {landlord['name']}")
                         st.write(f"電話: {landlord['phone']}")
-                        st.write(f"Email: {landlord['email']}")
-                with col2:
+                with btn_col2:
                     if st.button(f"適不適合我開店", key=f"check_{rental['address']}"):
                         st.session_state.selected_rental = rental
                         st.session_state.page = "analysis_page"
+
     if st.session_state.get("page", None) == "analysis_page":
         st.session_state.page = None
         # 顯示兩個tab
@@ -320,8 +360,6 @@ def rent_store_page():
 locations_data = {
     "地點": ["A區", "B區", "C區", "D區", "E區"],
     "每日平均流動人潮": [1000, 5000, 3000, 1500, 4500],
-    "常住人口": [50000, 200000, 150000, 100000, 250000],
-    "平均潛在消費力": [30000, 50000, 40000, 35000, 60000],
     "熱門時段": [
         ["10:00-12:00", "18:00-20:00"],
         ["09:00-11:00", "14:00-16:00"],
@@ -341,13 +379,7 @@ def find_hotspot_page():
     st.subheader("請輸入理想條件")
 
     # 每日平均流動人潮
-    avg_traffic = st.slider("每日平均流動人潮 >= ", min_value=0, max_value=10000, value=2000)
-
-    # 常住人口
-    population = st.slider("常住人口 >= ", min_value=0, max_value=1000000, value=100000)
-
-    # 平均潛在消費力
-    spending_power = st.slider("平均潛在消費力 >= ", min_value=0, max_value=100000, value=30000)
+    avg_traffic = st.slider("每日平均流動人潮 >= ", min_value=0, max_value=10, value=(0,5))
 
     # 熱門時段（多選）
     popular_times = st.multiselect(
@@ -357,20 +389,18 @@ def find_hotspot_page():
     )
 
     # 篩選符合條件的地點
-    filtered_df = locations_df[
-        (locations_df["每日平均流動人潮"] >= avg_traffic) &
-        (locations_df["常住人口"] >= population) &
-        (locations_df["平均潛在消費力"] >= spending_power) &
-        (locations_df["熱門時段"].apply(lambda x: any(time in popular_times for time in x)))
-    ]
+    filtered_df = locations_df
+    # [
+    #     (locations_df["每日平均流動人潮"] >= avg_traffic) &
+    #     (locations_df["熱門時段"].apply(lambda x: any(time in popular_times for time in x)))
+    # ]
 
     # 顯示符合條件的前五個地點
     st.subheader("符合條件的前 5 個地點：")
     top_locations = filtered_df.head(5)
 
     for _, row in top_locations.iterrows():
-        st.write(f"地點：{row['地點']}, 每日平均流動人潮：{row['每日平均流動人潮']}, 常住人口：{row['常住人口']}, "
-                 f"平均潛在消費力：{row['平均潛在消費力']}, 熱門時段：{', '.join(row['熱門時段'])}")
+        st.write(f"地點：{row['地點']}, 每日平均流動人潮：{row['每日平均流動人潮']}, 熱門時段：{', '.join(row['熱門時段'])}")
 
         # 在每一行後顯示按鈕
         if st.button(f"查看 {row['地點']} 附近店面出租資訊", key=row['地點']):
@@ -413,37 +443,12 @@ def add_case():
         st.session_state.floor = ''
     if 'rent' not in st.session_state:
         st.session_state.rent = ''
-    if 'shop_type' not in st.session_state:
-        st.session_state.shop_type = '請選擇'
-    if 'decoration' not in st.session_state:
-        st.session_state.decoration = []
-    if 'property_type' not in st.session_state:
-        st.session_state.property_type = '請選擇'
 
     # required fields
     st.session_state.address = st.text_input("地址 (必填)", value=st.session_state.address)
     st.session_state.area = st.text_input("坪數 (必填)", placeholder="例如：30坪", value=st.session_state.area)
     st.session_state.floor = st.text_input("樓層 (必填)", placeholder="例如：1樓", value=st.session_state.floor)
     st.session_state.rent = st.text_input("理想租金 (必填)", placeholder="例如：30000元/月", value=st.session_state.rent)
-
-    st.session_state.shop_type = st.selectbox(
-        "店舖類型 (必填)",
-        ["請選擇", "餐飲", "零售", "辦公室", "倉庫", "其他"],
-        index=["請選擇", "餐飲", "零售", "辦公室", "倉庫", "其他"].index(st.session_state.shop_type)
-    )
-
-    # optional fields
-    st.session_state.decoration = st.multiselect(
-        "裝潢 (選填)",
-        ["基本裝修", "精緻裝修", "未裝修"],
-        default=st.session_state.decoration
-    )
-
-    st.session_state.property_type = st.selectbox(
-        "型態 (選填)",
-        ["請選擇", "住宅改商用", "商業用途", "工業用途"],
-        index=["請選擇", "住宅改商用", "商業用途", "工業用途"].index(st.session_state.property_type)
-    )
 
     # 確定交出資料 button
     if st.button("提交表單"):
@@ -455,15 +460,6 @@ def add_case():
             st.write(f"**坪數**: {st.session_state.area}")
             st.write(f"**樓層**: {st.session_state.floor}")
             st.write(f"**理想租金**: {st.session_state.rent}")
-            st.write(f"**店舖類型**: {st.session_state.shop_type}")
-            if st.session_state.decoration:
-                st.write(f"**裝潢**: {', '.join(st.session_state.decoration)}")
-            else:
-                st.write("**裝潢**: 無")
-            if st.session_state.property_type != "請選擇":
-                st.write(f"**型態**: {st.session_state.property_type}")
-            else:
-                st.write("**型態**: 無")
 
 # 編輯/更新頁面
 def edit_case(case):
@@ -478,14 +474,11 @@ def edit_case(case):
         st.session_state.floor = case['floor']
     if 'rent' not in st.session_state:
         st.session_state.rent = case['ideal_rent']
-    if 'store_type' not in st.session_state:
-        st.session_state.store_type = case['store_type']
 
     st.session_state.address = st.text_input("地址", value=st.session_state.address)
     st.session_state.size = st.text_input("坪數 (坪)", value=st.session_state.size)
     st.session_state.floor = st.text_input("樓層", value=st.session_state.floor)
     st.session_state.rent = st.text_input("理想租金 (元)", value=st.session_state.rent)
-    st.session_state.store_type = st.text_input("店舖類型", value=st.session_state.store_type)
 
     # status update
     st.markdown("### 更新狀態")
@@ -504,7 +497,6 @@ def edit_case(case):
             "坪數": st.session_state.size,
             "樓層": st.session_state.floor,
             "理想租金": st.session_state.rent,
-            "店舖類型": st.session_state.store_type,
             "狀態": status
         })
 
@@ -525,7 +517,6 @@ def landlord_page():
             "size": 50,
             "floor": "1樓",
             "ideal_rent": 50000,
-            "store_type": "餐飲",
             "status": "已出租"
         },
         {
@@ -534,7 +525,6 @@ def landlord_page():
             "size": 30,
             "floor": "2樓",
             "ideal_rent": 30000,
-            "store_type": "零售",
             "status": "尚未出租"
         },
         {
@@ -543,7 +533,6 @@ def landlord_page():
             "size": 100,
             "floor": "1樓",
             "ideal_rent": 80000,
-            "store_type": "其他",
             "status": "已下架"
         },
     ]
@@ -558,7 +547,6 @@ def landlord_page():
             st.write(f"坪數: {case['size']} 坪")
             st.write(f"樓層: {case['floor']}")
             st.write(f"理想租金: {case['ideal_rent']} 元/月")
-            st.write(f"店舖類型: {case['store_type']}")
             st.write(f"交易狀態: {case['status']}")
 
             # 編輯/更新按鈕
@@ -567,51 +555,57 @@ def landlord_page():
             
             st.divider()
 
-# 登入頁面函式
+# 房東登入頁面函式
 def login_page():
-    st.title("登入頁面")
-    with st.form("login_form"):
-        user_name = st.text_input("使用者名稱", placeholder="請輸入您的名稱")
-        phone = st.text_input("電話", placeholder="請輸入您的電話號碼")
-        email = st.text_input("Email", placeholder="請輸入您的電子郵件")
-        submitted = st.form_submit_button("登入")
+    st.title("房東登入")
+    phone_number = st.text_input("請輸入您的電話號碼")
+    if st.button("登入"):
+        if phone_number:
+            st.success("登入成功！")
+            st.session_state.logged_in = True
+        else:
+            st.error("請輸入電話號碼！")
 
-        if submitted:
-            if not user_name or not phone or not email:
-                st.error("請完整填寫所有欄位！")
-            else:
-                user_data["user_name"] = user_name
-                user_data["phone"] = phone
-                user_data["email"] = email
-                st.session_state["logged_in"] = True
-                st.rerun()  # 進入主頁面
+def business_page():
+    st.title("我是業者")
+    tab1, tab2 = st.tabs(["我要租店面", "我要找熱點"])
+    
+    with tab1:
+        rent_store_page()
+    
+    with tab2:
+        find_hotspot_page()
 
-# 主頁面函式
-def main_page():
-    st.sidebar.write(f"👤 使用者：{user_data['user_name']}")
-    st.sidebar.write(f"📞 電話：{user_data['phone']}")
-    st.sidebar.write(f"📧 Email：{user_data['email']}")
-
+def main():
     st.title("🏢 Welcome to SmartRent")
-    tabs = st.tabs(["🙋‍♂️ 我是業者", "💁‍♂️ 我是房東"])
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
 
-    # 業者
-    with tabs[0]:
-        purpose = st.radio("請選擇造訪目的", ["我要租店面", "我要找熱點"])
-        if purpose == "我要租店面":
-            rent_store_page()
-        elif purpose == "我要找熱點":
-            find_hotspot_page()
+    # 初始頁面：選擇角色
+    if "role" not in st.session_state:
+        st.session_state.role = None
+    
+    if st.session_state.role is None:
+        col1, col2, col3 = st.columns([2, 1, 2])  # 三列佈局，中間列較寬
+        with col1:
+            st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)  # 空白分隔
+            if st.button("🙋‍♂️ 我是業者", key="business_button"):
+                st.session_state.role = "business"
+        with col3:
+            st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)  # 按鈕間距
+            if st.button("💁‍♂️ 我是房仲", key="landlord_button"):
+                st.session_state.role = "landlord"
+    
+    # 如果是業者
+    if st.session_state.role == "business":
+        business_page()
+    
+    # 如果是房東
+    elif st.session_state.role == "landlord":
+        if not st.session_state.logged_in:
+            login_page()
+        else:
+            landlord_page()
 
-    # 房東
-    with tabs[1]:
-        landlord_page()
-
-# 啟動
-if "logged_in" not in st.session_state:
-    st.session_state["logged_in"] = False
-
-if not st.session_state["logged_in"]:
-    login_page()
-else:
-    main_page()
+if __name__ == "__main__":
+    main()
