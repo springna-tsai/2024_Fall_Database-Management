@@ -3,6 +3,7 @@ import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import query
 
 # 使用者資料儲存
 user_data = {"user_name": None, "phone": None, "email": None}
@@ -80,7 +81,7 @@ def income_density_chart():
 def age_distribution_page():
     # 假資料
     age_distribution = {
-        "嬰兒": 10,
+        "孩童": 10,
         "青少年": 50,
         "新鮮人": 120,
         "壯年": 200,
@@ -89,14 +90,14 @@ def age_distribution_page():
 
     # 假設年齡層的人口數相較於其他地區的指標（+/- 表示多或少）
     age_comparison = {
-        "嬰兒": "少",
+        "孩童": "少",
         "青少年": "多",
         "新鮮人": "多",
         "壯年": "少",
         "老年": "少"
     }
 
-    age_groups = ["嬰兒", "青少年", "新鮮人", "壯年", "老年"]
+    age_groups = ["孩童", "青少年", "新鮮人", "壯年", "老年"]
 
     age_df = pd.DataFrame({
         'age_group': age_groups,
@@ -107,17 +108,17 @@ def age_distribution_page():
    # 顯示年齡層人口數
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric(label="嬰兒", value=age_df.loc[0, 'count'], delta=age_df.loc[0, 'comparison'])
+        st.metric(label="孩童 (0~9)", value=age_df.loc[0, 'count'], delta=age_df.loc[0, 'comparison'])
     with col2:
-        st.metric(label="青少年", value=age_df.loc[1, 'count'], delta=age_df.loc[1, 'comparison'])
+        st.metric(label="青少年 (10~19)", value=age_df.loc[1, 'count'], delta=age_df.loc[1, 'comparison'])
     with col3:
-        st.metric(label="新鮮人", value=age_df.loc[2, 'count'], delta=age_df.loc[2, 'comparison'])
+        st.metric(label="新鮮人 (20~29)", value=age_df.loc[2, 'count'], delta=age_df.loc[2, 'comparison'])
 
     col4, col5 = st.columns(2)
     with col4:
-        st.metric(label="壯年", value=age_df.loc[3, 'count'], delta=age_df.loc[3, 'comparison'])
+        st.metric(label="壯年 (30~64)", value=age_df.loc[3, 'count'], delta=age_df.loc[3, 'comparison'])
     with col5:
-        st.metric(label="老年", value=age_df.loc[4, 'count'], delta=age_df.loc[4, 'comparison'])
+        st.metric(label="老年 (65 以上)", value=age_df.loc[4, 'count'], delta=age_df.loc[4, 'comparison'])
 # 性別比例
 def gender_distribution_page():
     gender_distribution = {"男": 60, "女": 40}
@@ -132,6 +133,7 @@ def gender_distribution_page():
     ax.axis('equal')
     st.pyplot(fig)
 
+# 商機分析
 def opportunity_analysis_page():
     # 人潮流量光譜：早到晚
     st.subheader("人潮流量光譜")
@@ -151,66 +153,63 @@ def opportunity_analysis_page():
         st.subheader("性別分布")
         gender_distribution_page()
 
+# 競爭市場
 def competitive_market_page():
     # 市場資料
     market_data = [
         {"營業項目": "零售業", "店鋪數量": 5, "平均資本額": 500000},
-        {"營業項目": "餐飲業", "店鋪數量": 3, "平均資本額": 600000},
+        {"營業項目": "餐飲業", "店舖數量": 3, "平均資本額": 600000},
     ]
 
-    market_df = pd.DataFrame(market_data)
-
-    st.write("### 競爭市場概覽：")
-    
-    # 使用 st.columns 模擬表格標題
-    col1, col2, col3, col4 = st.columns([3, 3, 3, 2])
-    col1.markdown("**營業項目**")
-    col2.markdown("**店鋪數量**")
-    col3.markdown("**平均資本額 (元)**")
-    col4.markdown("**操作**")
-    
-    # 顯示每一行市場資料
-    for idx, row in market_df.iterrows():
-        col1, col2, col3, col4 = st.columns([3, 3, 3, 2])
-        col1.write(row["營業項目"])
-        col2.write(row["店鋪數量"])
-        col3.write(f"{row['平均資本額']:,}")
-        
-        # 每個營業項目都建"查看店家"button
-        if col4.button("查看店家", key=f"view_stores_{idx}"):
-            st.session_state.selected_business = row["營業項目"]
-            st.experimental_rerun()
-
-    # 假資料：店鋪資訊
+    # 店鋪假資料
     store_data = [
-        {"店名": "店鋪A", "地址": "台北市信義區松仁路123號", "資本額": 1000000, "經度": 121.5654, "緯度": 25.0330},
-        {"店名": "店鋪B", "地址": "台北市中正區公園路30-1號", "資本額": 800000, "經度": 121.5070, "緯度": 25.0320},
-        {"店名": "店鋪C", "地址": "台北市大安區新生南路三段88之2號", "資本額": 1200000, "經度": 121.5351, "緯度": 25.0270},
-        {"店名": "店鋪D", "地址": "台北市南港區經貿二路10號", "資本額": 950000, "經度": 121.6035, "緯度": 25.0240},
-        {"店名": "店鋪E", "地址": "台北市北投區光明路35號", "資本額": 700000, "經度": 121.5121, "緯度": 25.1505},
-        {"店名": "店鋪F", "地址": "台北市士林區天母路45號", "資本額": 1100000, "經度": 121.5236, "緯度": 25.1060},
+        {"店名": "店鋪A", "營業項目": "零售業", "地址": "台北市信義區松仁路123號", "資本額": 1000000, "經度": 121.5654, "緯度": 25.0330},
+        {"店名": "店鋪B", "營業項目": "零售業", "地址": "台北市中正區公園路30-1號", "資本額": 800000, "經度": 121.5070, "緯度": 25.0320},
+        {"店名": "店鋪C", "營業項目": "零售業", "地址": "台北市大安區新生南路三段88之2號", "資本額": 1200000, "經度": 121.5351, "緯度": 25.0270},
+        {"店名": "店鋪D", "營業項目": "餐飲業", "地址": "台北市南港區經貿二路10號", "資本額": 950000, "經度": 121.6035, "緯度": 25.0240},
+        {"店名": "店鋪E", "營業項目": "餐飲業", "地址": "台北市北投區光明路35號", "資本額": 700000, "經度": 121.5121, "緯度": 25.1505},
     ]
 
+    # 轉換單位：資本額(元) -> 資本額(萬元)
+    for data in market_data:
+        data["平均資本額"] = data["平均資本額"] // 10000
+
+    for store in store_data:
+        store["資本額"] = store["資本額"] // 10000
+
+    # 按照店舖數量排序
+    market_df = pd.DataFrame(market_data).sort_values(by="店舖數量", ascending=False)
+
+    # 市場資料顯示
+    st.write("### 競爭市場概覽：")
+    col1, col2, col3 = st.columns([3, 3, 3])
+    col1.markdown("**營業項目**")
+    col2.markdown("**店舖數量**")
+    col3.markdown("**平均資本額 (萬元)**")
+
+    for _, row in market_df.iterrows():
+        col1, col2, col3 = st.columns([3, 3, 3])
+        col1.write(row["營業項目"])
+        col2.write(row["店舖數量"])
+        col3.write(row["平均資本額"])
+
+    # 顯示每個營業項目的 Top 5 店鋪
     store_df = pd.DataFrame(store_data)
-    
-    # 顯示選擇的營業項目的店鋪資料
-    if "selected_business" in st.session_state:
-        selected_business = st.session_state.selected_business
-        filtered_stores = filter_stores_by_business(selected_business, store_df)
-        
-        # 該營業項目的店鋪統計資料
-        st.write(f"### {selected_business} 顯示的 Top 5 資本額店鋪")
+    for business in market_df["營業項目"]:
+        st.write(f"### {business} 的 Top 5 資本額店鋪")
+        filtered_stores = store_df[store_df["營業項目"] == business].nlargest(5, "資本額")
+
         col1, col2, col3, col4 = st.columns([2, 5, 3, 3])
         col1.markdown("**店名**")
         col2.markdown("**地址**")
-        col3.markdown("**資本額 (元)**")
-        col4.markdown("**詳情**")
-        
-        for idx, row in filtered_stores.iterrows():
+        col3.markdown("**資本額 (萬元)**")
+        col4.markdown("**地圖**")
+
+        for _, row in filtered_stores.iterrows():
             col1, col2, col3, col4 = st.columns([2, 5, 3, 3])
             col1.write(row["店名"])
             col2.write(row["地址"])
-            col3.write(f"{row['資本額']:,}")
+            col3.write(row["資本額"])
             col4.markdown(f"[Google 地圖連結](https://www.google.com/maps?q={row['緯度']},{row['經度']})", unsafe_allow_html=True)
 
 def filter_stores_by_business(business_type, store_df):
@@ -260,7 +259,7 @@ def rent_store_page():
     rent_budget = st.slider(
         "選擇租金預算（每月）",
         min_value=10000,
-        max_value=1000000,
+        max_value=2000000,
         value=(20000, 50000),
         step=5000,
         help="選擇您的租金預算範圍"
@@ -395,13 +394,27 @@ def find_hotspot_page():
 
     # 顯示符合條件的前五個地點
     st.subheader("符合條件的前 5 個地點：")
+
+    # 假設 filtered_df 已經篩選完成，並包含所需資料
     top_locations = filtered_df.head(5)
 
-    for _, row in top_locations.iterrows():
-        st.write(f"地點：{row['地點']}, 每日平均流動人潮：{row['每日平均流動人潮']}, 熱門時段：{', '.join(row['熱門時段'])}")
+    # 顯示表頭
+    col1, col2, col3, col4 = st.columns([3, 4, 4, 3])
+    col1.markdown("**地點**")
+    col2.markdown("**每日平均流動人潮**")
+    col3.markdown("**熱門時段**")
+    col4.markdown("**操作**")
 
-        # 在每一行後顯示按鈕
-        if st.button(f"查看 {row['地點']} 附近店面出租資訊", key=row['地點']):
+    # 一列一列寫入資料並附加按鈕
+    for _, row in top_locations.iterrows():
+        col1, col2, col3, col4 = st.columns([3, 4, 4, 3])
+        col1.write(row['地點'])
+        col2.write(f"{row['每日平均流動人潮']:,}")
+        col3.write(", ".join(row['熱門時段']))
+        
+        # 添加按鈕，使用地點作為鍵以保證唯一性
+        if col4.button(f"查看 {row['地點']} 附近店面出租資訊", key=row['地點']):
+            # 呼叫對應的函式來顯示店面出租資訊
             show_rental_info(row['地點'])
 
 # 顯示出租資訊
@@ -413,21 +426,28 @@ def show_rental_info(location):
         "店面名稱": ["店面A", "店面B", "店面C"],
         "租金": ["50000元/月", "60000元/月", "55000元/月"],
         "面積": ["30㎡", "40㎡", "35㎡"],
+        "聯絡房仲": ["胡先生", "洪小姐", "馮先生"],
         "聯絡方式": ["0922-xxxxxx", "0933-xxxxxx", "0911-xxxxxx"]
     }
 
     rental_df = pd.DataFrame(rental_info)
-    for _, row in rental_df.iterrows():
-        st.write(f"店面名稱：{row['店面名稱']}, 租金：{row['租金']}, 面積：{row['面積']}, 聯絡方式：{row['聯絡方式']}")
 
-    # 提供聯絡房東按鈕
-    if st.button("聯絡房東", key="contact_landlord"):
-        contact_landlord()
+    # 顯示表頭
+    col1, col2, col3, col4, col5 = st.columns([3, 3, 2, 3, 3])
+    col1.markdown("**店面名稱**")
+    col2.markdown("**租金**")
+    col3.markdown("**面積**")
+    col4.markdown("**聯絡房仲**")
+    col5.markdown("**聯絡方式**")
 
-# 聯絡房東的功能
-def contact_landlord():
-    st.write("您可以通過以下方式聯絡房東：")
-    st.write("電話：0922-485436 或發送電子郵件至 landlord@example.com")
+    # 一列一列顯示資訊
+    for idx, row in rental_df.iterrows():
+        col1, col2, col3, col4, col5 = st.columns([3, 3, 3, 3, 2])
+        col1.write(row['店面名稱'])
+        col2.write(row['租金'])
+        col3.write(row['面積'])
+        col4.write(row['聯絡房仲'])
+        col5.write(row['聯絡方式'])
 
 # 房東新增出租 case
 def add_case():
@@ -481,7 +501,7 @@ def edit_case(case):
     # status update
     st.markdown("### 更新狀態")
     status = st.radio(
-        "選擇新的狀態:",
+        "選擇新的狀態:",    
         ("尚未出租", "撤回案件", "已出租", "洽談中"),
         index=["尚未出租", "已下架", "已出租", "洽談中"].index(case['status'])
     )
