@@ -3,5 +3,5 @@
     "port": 5432,
     "database": "Group28_data",
     "user": "postgres",
-    "password": "a0903064313"
+    "password": "a12345678"
 }
