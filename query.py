@@ -443,6 +443,170 @@ def get_top5_subtype_data(district=None, village=None):
 # get_village_data(district = '大安區')
 # get_village_data()
 
+# subtype 的店鋪資料
+def get_business_data(business_sub_type=None, district=None, village=None):
+    # 動態構建 WHERE 條件
+    conditions = []
+    if business_sub_type:
+        conditions.append(f"business_sub_type = '{business_sub_type}'")
+    if district:
+        conditions.append(f"district = '{district}'")
+    if village:
+        conditions.append(f"village = '{village}'")
+
+    # 合成 WHERE 子句
+    where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+    res = con.sql(f"""--sql
+            SELECT business_name, address, capital, longitude, latitude, district, village
+            FROM Business_Operation 
+            {where_clause}
+          """)
+    df = res.df()
+    return df
+
+# 範例
+# get_business_data('布疋及服飾品零售業')
+
+# 熱點搜索
+def get_organization_flow_data(avg_total_flow=None, time_periods=None):
+    # 動態構建 WHERE 條件
+    conditions = []
+    if avg_total_flow is not None:
+        conditions.append(f"cf.avg_total_flow >= {avg_total_flow}")
+    if time_periods:
+        # 將 time_periods 格式化為 SQL 可接受的 IN 條件
+        formatted_periods = ", ".join([f"'{tp}'" for tp in time_periods])
+        conditions.append(f"cf.time_group IN ({formatted_periods})")
+    
+    where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+
+    res = con.sql(f"""--sql
+    WITH mrt_distances AS (
+        SELECT
+            s.case_id,
+            s.district,
+            s.village,
+            s.case_name,
+            m.station_id AS mrt_station_id,
+            (
+                6371 * ACOS(
+                    COS(RADIANS(s.latitude)) * COS(RADIANS(m.latitude)) *
+                    COS(RADIANS(m.longitude) - RADIANS(s.longitude)) +
+                    SIN(RADIANS(s.latitude)) * SIN(RADIANS(m.latitude))
+                )
+            ) AS mrt_distance_km
+        FROM Shop_Rental_Listing s
+        CROSS JOIN MRT_Station_Info m
+    ),
+    ubike_distances AS (
+        SELECT
+            s.case_id,
+            s.district,
+            s.village,
+            s.case_name,
+            u.station_id AS ubike_station_id,
+            (
+                6371 * ACOS(
+                    COS(RADIANS(s.latitude)) * COS(RADIANS(u.latitude)) *
+                    COS(RADIANS(u.longitude) - RADIANS(s.longitude)) +
+                    SIN(RADIANS(s.latitude)) * SIN(RADIANS(u.latitude))
+                )
+            ) AS ubike_distance_km
+        FROM Shop_Rental_Listing s
+        CROSS JOIN Ubike_Station_Info u
+    ),
+    mrt_flow_data AS (
+        SELECT
+            mf.station_id AS mrt_station_id, 
+            FLOOR((mf.time_period - 1) / 2) + 1 AS time_group, -- 將時段分組
+            ROUND(SUM(mf.entrance_count + mf.exit_count)) AS avg_mrt_flow
+        FROM MRT_Flow_Record mf
+        WHERE mf.date >= CURRENT_DATE - INTERVAL '2 years' 
+          AND mf.time_period NOT BETWEEN 2 AND 5
+        GROUP BY mf.station_id, time_group
+    ),
+    ubike_flow_data AS (
+        SELECT
+            uf.station_id AS ubike_station_id,
+            FLOOR((uf.time_period - 1) / 2) + 1 AS time_group, -- 將時段分組
+            ROUND(SUM(uf.rent_count + uf.return_count)) AS avg_ubike_flow
+        FROM Ubike_Station_Rental_Record uf
+        WHERE uf.date >= CURRENT_DATE - INTERVAL '2 years'
+        GROUP BY uf.station_id, time_group
+    ),
+    mrt_case_flow AS (
+        SELECT
+            mrt.case_id,
+            mrt.district,
+            mrt.case_name,
+            mrt.village,
+            m.station_name AS mrt_station_name,
+            mf.time_group,
+            SUM(mf.avg_mrt_flow) AS total_mrt_flow
+        FROM mrt_distances mrt
+        JOIN mrt_flow_data mf ON mf.mrt_station_id = mrt.mrt_station_id
+        JOIN MRT_Station_Info m ON m.station_id = mrt.mrt_station_id
+        WHERE mrt.mrt_distance_km <= 1
+        GROUP BY mrt.case_id, mrt.district, mrt.case_name, mrt.village, m.station_name, mf.time_group
+    ),
+    ubike_case_flow AS (
+        SELECT
+            ubike.case_id,
+            ubike.district,
+            ubike.case_name,
+            ubike.village,
+            uf.time_group,
+            SUM(uf.avg_ubike_flow) AS total_ubike_flow
+        FROM ubike_distances ubike
+        JOIN ubike_flow_data uf ON uf.ubike_station_id = ubike.ubike_station_id
+        WHERE ubike.ubike_distance_km <= 1
+        GROUP BY ubike.case_id, ubike.district, ubike.case_name, ubike.village, uf.time_group
+    ),
+    combined_flow AS (
+        SELECT
+            COALESCE(mcf.case_id, ucf.case_id) AS case_id,
+            COALESCE(mcf.district, ucf.district) AS district,
+            COALESCE(mcf.case_name, ucf.case_name) AS case_name,
+            COALESCE(mcf.village, ucf.village) AS village,
+            mcf.mrt_station_name,
+            COALESCE(mcf.time_group, ucf.time_group) AS time_group,
+            COALESCE(mcf.total_mrt_flow, 0) + COALESCE(ucf.total_ubike_flow, 0) AS avg_total_flow
+        FROM mrt_case_flow mcf
+        FULL JOIN ubike_case_flow ucf 
+            ON mcf.case_id = ucf.case_id AND mcf.time_group = ucf.time_group
+    ),
+    business_area_info AS (
+        SELECT 
+            ns.case_id,
+            mba.name AS business_area_name,
+            mba.tag AS business_area_tag
+        FROM mrt_distances ns
+        JOIN MRT_Business_Area mba ON ns.mrt_station_id = mba.station_id
+        WHERE ns.mrt_distance_km <= 1
+        GROUP BY ns.case_id, mba.name, mba.tag
+    )
+    SELECT 
+        cf.case_id,
+        cf.district AS "區域",
+        cf.village AS "村裡",
+        bai.business_area_name AS "商圈名稱",
+        cf.mrt_station_name AS "捷運站",
+        cf.time_group AS "時段組",
+        cf.avg_total_flow AS "人流"
+    FROM combined_flow cf
+    LEFT JOIN business_area_info bai ON cf.case_id = bai.case_id
+    {where_clause}
+    ORDER BY cf.district, cf.village, cf.case_name, bai.business_area_name, cf.mrt_station_name, cf.time_group ASC;
+    """)
+
+    return res
+
+    df = res.df()
+    return df
+
+# 範例呼叫：過濾人流為100及時段為10的紀錄
+# get_organization_flow_data(time_period=10)
+
 
 # ## 插入房東資料
 
