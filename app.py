@@ -3,7 +3,7 @@ import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-import query
+import query as q
 
 # 使用者資料儲存
 user_data = {"user_name": None, "phone": None, "email": None}
@@ -12,91 +12,98 @@ user_data = {"user_name": None, "phone": None, "email": None}
 plt.rcParams['font.family'] = ['Heiti TC']
 
 # 每日平均人潮流動折線圖
-def crowd_flow_spectrum():
-    time_slots = ["00:00", "06:00", "12:00", "18:00", "24:00"]
-    values = [10, 15, 70, 55, 45]
+def crowd_flow_spectrum(case_id):
+    df = q.get_shop_flow_data(case_id=case_id)
 
-    df = pd.DataFrame({
-        'time': time_slots,
-        'values': values
-    })
+    if 'time_period' not in df.columns or 'avg_total_flow' not in df.columns:
+        st.error("Required columns not found in the data.")
+        return
+    
+    # data for plotting
+    df['time_period'] = pd.Categorical(df['time_period'], ordered=True)
+    df.sort_values('time_period', inplace=True)  # 按 time_period 排序
+    df.reset_index(drop=True, inplace=True)
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(df['time_period'], df['avg_total_flow'], marker='o', linestyle='-', color='tab:blue')
+    plt.xlabel('時刻(時)')
+    plt.ylabel('平均流動人潮')
+    plt.grid(True)
 
-    norm = mcolors.Normalize(vmin=0, vmax=len(time_slots)-1)
-    cmap = plt.get_cmap('viridis')
-
-    df['color'] = [cmap(norm(i)) for i in range(len(df))]
-
-    # 折線圖
-    plt.figure(figsize=(10,6))
-    plt.plot(df['time'], df['values'], marker='o', linestyle='-', color='tab:blue')
-
-    plt.xlabel('Time')
-    plt.ylabel('Values')
-    plt.title('Time vs Values Spectrum')
-
+    plt.xticks(rotation=45)
     st.pyplot(plt)
 
 # 住戶密度 & 收入水平分析
-def income_density_chart():
-    # 假資料
-    density_values = [10, 50, 100]  # 住戶密度
-    income_values = [10, 50, 100]  # 收入
+def income_density_chart(case_id, district):
+    # 查詢該 case_id 所在 village 的資訊
+    shop_flow_df = q.get_shop_flow_data(case_id=case_id)
+    target_village = shop_flow_df['village'].iloc[0]
     
-    # 計算住戶密度和收入的平均值和中位數
-    avg_density = np.mean(density_values)
-    median_density = np.median(density_values)
-    avg_income = np.mean(income_values)
-    median_income = np.median(income_values)
+    # 查詢該區域所有 village 的資訊
+    village_df = q.get_village_data(district=district)
     
-    avg_density = round(avg_density)
-    median_density = round(median_density)
-    avg_income = round(avg_income)
-    median_income = round(median_income)
+    # 篩出目標 village 的數據
+    target_data = village_df[village_df['village'] == target_village]
+    location_density = target_data['household_count']
+    location_income = target_data['avg_income']
+    avg_income = int(target_data['nearby_avg_income'].iloc[0])
+    avg_density = int(target_data['nearby_avg_density'].iloc[0])
+
+    # 除目標 village 外其他 villages 的數據
+    other_villages = village_df[village_df['village'] != target_village]
+    density_values = other_villages['household_count'].tolist()
+    income_values = other_villages['avg_income'].tolist()
     
-    # X 軸為住戶密度，Y 軸為收入水平
+    # 圖表
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.scatter(density_values, income_values, c='blue', s=100, label='區域點')
-
-    # 假資料
-    location_density = 60
-    location_income = 70
-
-    # 標示該地點
-    ax.scatter(location_density, location_income, c='red', s=100, label='該地點', edgecolor='black')
-
-    # 標示 X 軸與 Y 軸的平均值與中位數
-    ax.axvline(avg_density, color='green', linestyle='--', label=f'住戶密度平均值: {avg_density}')
+    
+    # 其他 village 的點 (藍色)
+    ax.scatter(density_values, income_values, c='blue', s=100, label='其他村里')
+    
+    # 目標 village 的點 (紅色)
+    ax.scatter(location_density, location_income, c='red', s=100, label=f"{target_village}", edgecolor='black')
+    
+    # X 軸與 Y 軸平均值
     ax.axhline(avg_income, color='purple', linestyle='--', label=f'收入平均值: {avg_income}')
-    ax.axvline(median_density, color='orange', linestyle=':', label=f'住戶密度中位數: {median_density}')
-    ax.axhline(median_income, color='yellow', linestyle=':', label=f'收入中位數: {median_income}')
-
-    ax.set_title("住戶密度與收入水平的關係圖")
+    ax.axvline(avg_density, color='yellow', linestyle=':', label=f'人口密度平均值: {avg_density}')
+    
+    ax.set_title(f"{district} 各村里住戶密度與收入水平的關係圖")
     ax.set_xlabel("住戶密度")
     ax.set_ylabel("收入水平")
     ax.legend()
-
+    
     st.pyplot(fig)
 
 # 年齡層分析
-def age_distribution_page():
-    # 假資料
+def age_distribution_page(case_id, district):
+    # 流動人潮
+    shop_flow_df = q.get_shop_flow_data(case_id=case_id)
+    target_village = shop_flow_df['village'].iloc[0]
+    
+    # 查詢該區域所有 village 資訊
+    village_df = q.get_village_data(district=district)
+    
+    # 篩出目標 village 數據
+    target_data = village_df[village_df['village'] == target_village]
+    
+    # 計算年齡分布比例
     age_distribution = {
-        "孩童": 10,
-        "青少年": 50,
-        "新鮮人": 120,
-        "壯年": 200,
-        "老年": 30
+        "孩童": target_data['avg_0_9_ratio'].iloc[0] * 100,
+        "青少年": target_data['avg_10_19_ratio'].iloc[0] * 100,
+        "新鮮人": target_data['avg_20_29_ratio'].iloc[0] * 100,
+        "壯年": target_data['avg_30_64_ratio'].iloc[0] * 100,
+        "老年": target_data['avg_over_65_ratio'].iloc[0] * 100,
     }
-
-    # 假設年齡層的人口數相較於其他地區的指標（+/- 表示多或少）
+    
+    # 比較目標村里和周邊地區的年齡分布
     age_comparison = {
-        "孩童": "少",
-        "青少年": "多",
-        "新鮮人": "多",
-        "壯年": "少",
-        "老年": "少"
+        "孩童": compare_ratios(target_data['avg_0_9_ratio'].iloc[0], target_data['nearby_0_9_ratio'].iloc[0]),
+        "青少年": compare_ratios(target_data['avg_10_19_ratio'].iloc[0], target_data['nearby_10_19_ratio'].iloc[0]),
+        "新鮮人": compare_ratios(target_data['avg_20_29_ratio'].iloc[0], target_data['nearby_20_29_ratio'].iloc[0]),
+        "壯年": compare_ratios(target_data['avg_30_64_ratio'].iloc[0], target_data['nearby_30_64_ratio'].iloc[0]),
+        "老年": compare_ratios(target_data['avg_over_65_ratio'].iloc[0], target_data['nearby_over_65_ratio'].iloc[0]),
     }
-
+    
     age_groups = ["孩童", "青少年", "新鮮人", "壯年", "老年"]
 
     age_df = pd.DataFrame({
@@ -105,27 +112,40 @@ def age_distribution_page():
         'comparison': [age_comparison[group] for group in age_groups]
     })
 
-   # 顯示年齡層人口數
+    # 顯示年齡層人口數
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric(label="孩童 (0~9)", value=age_df.loc[0, 'count'], delta=age_df.loc[0, 'comparison'])
+        st.metric(label="孩童 (0~9 歲)", value=f"{age_df.loc[0, 'count']:.1f}%", delta=age_df.loc[0, 'comparison'])
     with col2:
-        st.metric(label="青少年 (10~19)", value=age_df.loc[1, 'count'], delta=age_df.loc[1, 'comparison'])
+        st.metric(label="青少年 (10~19 歲)", value=f"{age_df.loc[1, 'count']:.1f}%", delta=age_df.loc[1, 'comparison'])
     with col3:
-        st.metric(label="新鮮人 (20~29)", value=age_df.loc[2, 'count'], delta=age_df.loc[2, 'comparison'])
+        st.metric(label="新鮮人 (20~29 歲)", value=f"{age_df.loc[2, 'count']:.1f}%", delta=age_df.loc[2, 'comparison'])
 
     col4, col5 = st.columns(2)
     with col4:
-        st.metric(label="壯年 (30~64)", value=age_df.loc[3, 'count'], delta=age_df.loc[3, 'comparison'])
+        st.metric(label="壯年 (30~64 歲)", value=f"{age_df.loc[3, 'count']:.1f}%", delta=age_df.loc[3, 'comparison'])
     with col5:
-        st.metric(label="老年 (65 以上)", value=age_df.loc[4, 'count'], delta=age_df.loc[4, 'comparison'])
+        st.metric(label="老年 (65 歲以上)", value=f"{age_df.loc[4, 'count']:.1f}%", delta=age_df.loc[4, 'comparison'])
+
+def compare_ratios(target_ratio, nearby_ratio):
+    """比較目標村莊和附近地區的比例，返回對應的描述。"""
+    if target_ratio > nearby_ratio:
+        return "客群高於附近其他地區"
+    elif target_ratio == nearby_ratio:
+        return "客群量與附近地區一致"
+    else:
+        return "客群量低於附近其他地區"
+
 # 性別比例
-def gender_distribution_page():
-    gender_distribution = {"男": 60, "女": 40}
-    gender_df = pd.DataFrame({
-        'gender': gender_distribution.keys(),
-        'percentage': gender_distribution.values()
-    })
+def gender_distribution_page(case_id, district):
+    shop_flow_df = q.get_shop_flow_data(case_id=case_id)
+    target_village = shop_flow_df['village'].iloc[0]
+    # 查詢該區域所有 village 資訊
+    village_df = q.get_village_data(district=district)
+    target_data = village_df[village_df['village'] == target_village]
+    male = target_data['male_population_ratio'].iloc[0]*100
+    female = target_data['female_population_ratio'].iloc[0]*100
+    gender_distribution = {"男": male, "女": female}
     colors = ['#66b3ff', '#ff66b3']
 
     fig, ax = plt.subplots()
@@ -135,50 +155,61 @@ def gender_distribution_page():
 
 # 商機分析
 def opportunity_analysis_page():
+    if "selected_rental" in st.session_state:
+        rental = st.session_state.selected_rental
+        case_id = rental["case_id"]
+    if "selected_districts" in st.session_state:
+        selected_districts = st.session_state.selected_districts
+
     # 人潮流量光譜：早到晚
     st.subheader("人潮流量光譜")
-    crowd_flow_spectrum()
+    crowd_flow_spectrum(case_id=case_id)
 
     # 住戶密度&人潮流動光譜
     st.subheader("住戶密度光譜")
-    income_density_chart()
+    income_density_chart(case_id=case_id, district=selected_districts)
     
-    col1, col2 = st.columns([3, 1])
+    col1, col2 = st.columns([5, 3])
 
     with col1:
         st.subheader("年齡層分佈")
-        age_distribution_page()
+        age_distribution_page(case_id=case_id, district=selected_districts)
 
     with col2:
         st.subheader("性別分布")
-        gender_distribution_page()
+        gender_distribution_page(case_id=case_id, district=selected_districts)
 
 # 競爭市場
-def competitive_market_page():
-    # 市場資料
-    market_data = [
-        {"營業項目": "零售業", "店鋪數量": 5, "平均資本額": 500000},
-        {"營業項目": "餐飲業", "店舖數量": 3, "平均資本額": 600000},
-    ]
-
-    # 店鋪假資料
-    store_data = [
-        {"店名": "店鋪A", "營業項目": "零售業", "地址": "台北市信義區松仁路123號", "資本額": 1000000, "經度": 121.5654, "緯度": 25.0330},
-        {"店名": "店鋪B", "營業項目": "零售業", "地址": "台北市中正區公園路30-1號", "資本額": 800000, "經度": 121.5070, "緯度": 25.0320},
-        {"店名": "店鋪C", "營業項目": "零售業", "地址": "台北市大安區新生南路三段88之2號", "資本額": 1200000, "經度": 121.5351, "緯度": 25.0270},
-        {"店名": "店鋪D", "營業項目": "餐飲業", "地址": "台北市南港區經貿二路10號", "資本額": 950000, "經度": 121.6035, "緯度": 25.0240},
-        {"店名": "店鋪E", "營業項目": "餐飲業", "地址": "台北市北投區光明路35號", "資本額": 700000, "經度": 121.5121, "緯度": 25.1505},
-    ]
-
-    # 轉換單位：資本額(元) -> 資本額(萬元)
-    for data in market_data:
-        data["平均資本額"] = data["平均資本額"] // 10000
-
-    for store in store_data:
-        store["資本額"] = store["資本額"] // 10000
-
+def competitive_market_page(case_id, district):
+    # 目標村里
+    shop_flow_df = q.get_shop_flow_data(case_id=case_id)
+    target_village = shop_flow_df['village'].iloc[0]
+    
+    # 根據條件選擇查詢方式
+    if "selected_business_type" in st.session_state:
+        selected_type = st.session_state["selected_business_type"]
+        df = q.get_competitive_data(district=district, village=target_village, type=selected_type)
+    else:
+        df = q.get_top5_subtype_data(district=district, village=target_village)
+    
+    # 如果查無資料，顯示提示
+    if df.empty:
+        st.write("### 無競爭市場數據")
+        st.write("目前該地區沒有相關的營業資料。")
+        return
+    
+    # 變更欄位名稱
+    df = df.rename(columns={
+        "business_sub_type": "營業項目",
+        "shop_cnt": "店舖數量",
+        "avg_capital": "平均資本額"
+    })
+    
+    # 單位：資本額(元) -> 資本額(萬元)
+    df["平均資本額"] = df["平均資本額"] // 10000
+    
     # 按照店舖數量排序
-    market_df = pd.DataFrame(market_data).sort_values(by="店舖數量", ascending=False)
+    df = df.sort_values(by="店舖數量", ascending=False)
 
     # 市場資料顯示
     st.write("### 競爭市場概覽：")
@@ -187,30 +218,30 @@ def competitive_market_page():
     col2.markdown("**店舖數量**")
     col3.markdown("**平均資本額 (萬元)**")
 
-    for _, row in market_df.iterrows():
+    for _, row in df.iterrows():
         col1, col2, col3 = st.columns([3, 3, 3])
         col1.write(row["營業項目"])
         col2.write(row["店舖數量"])
         col3.write(row["平均資本額"])
 
-    # 顯示每個營業項目的 Top 5 店鋪
-    store_df = pd.DataFrame(store_data)
-    for business in market_df["營業項目"]:
-        st.write(f"### {business} 的 Top 5 資本額店鋪")
-        filtered_stores = store_df[store_df["營業項目"] == business].nlargest(5, "資本額")
+    # # 顯示每個營業項目的 Top 5 店鋪
+    # store_df = pd.DataFrame(store_data)
+    # for business in market_df["營業項目"]:
+    #     st.write(f"### {business} 的 Top 5 資本額店鋪")
+    #     filtered_stores = store_df[store_df["營業項目"] == business].nlargest(5, "資本額")
 
-        col1, col2, col3, col4 = st.columns([2, 5, 3, 3])
-        col1.markdown("**店名**")
-        col2.markdown("**地址**")
-        col3.markdown("**資本額 (萬元)**")
-        col4.markdown("**地圖**")
+    #     col1, col2, col3, col4 = st.columns([2, 5, 3, 3])
+    #     col1.markdown("**店名**")
+    #     col2.markdown("**地址**")
+    #     col3.markdown("**資本額 (萬元)**")
+    #     col4.markdown("**地圖**")
 
-        for _, row in filtered_stores.iterrows():
-            col1, col2, col3, col4 = st.columns([2, 5, 3, 3])
-            col1.write(row["店名"])
-            col2.write(row["地址"])
-            col3.write(row["資本額"])
-            col4.markdown(f"[Google 地圖連結](https://www.google.com/maps?q={row['緯度']},{row['經度']})", unsafe_allow_html=True)
+    #     for _, row in filtered_stores.iterrows():
+    #         col1, col2, col3, col4 = st.columns([2, 5, 3, 3])
+    #         col1.write(row["店名"])
+    #         col2.write(row["地址"])
+    #         col3.write(row["資本額"])
+    #         col4.markdown(f"[Google 地圖連結](https://www.google.com/maps?q={row['緯度']},{row['經度']})", unsafe_allow_html=True)
 
 def filter_stores_by_business(business_type, store_df):
     if business_type == "零售業":
@@ -223,12 +254,11 @@ def filter_stores_by_business(business_type, store_df):
 def rent_store_page():
     st.title("🔍 我要租店面")
 
+    # 初始化 session_state
     if "trade_area_details" not in st.session_state:
         st.session_state.trade_area_details = None
     if "rental_details" not in st.session_state:
         st.session_state.rental_details = None
-    if "sidebar_view" not in st.session_state:
-        st.session_state.sidebar_view = None
 
     # 輸入理想開店地點 - 必填項目
     st.subheader("請至少輸入一個心目中的理想開店地點後，按 “進行查詢”")
@@ -238,14 +268,13 @@ def rent_store_page():
         "中正區", "大同區", "中山區", "松山區", "大安區", "萬華區", "信義區", "士林區", "北投區",
         "內湖區", "南港區", "文山區"
     ]
-
-    selected_districts = st.multiselect(
-            "選擇區域別",
-            options=districts,
-            help="選擇您理想開店的區域"
-        )
-
-    # 2. 租金預算
+    selected_districts = st.selectbox(
+        "選擇區域別",
+        options=districts,
+        help="選擇您理想開店的區域"
+    )
+    st.session_state.selected_districts = selected_districts
+    # 2. 空間大小
     ping = st.slider(
         "選擇空間大小（坪）",
         min_value=0,
@@ -254,19 +283,19 @@ def rent_store_page():
         step=5,
         help="選擇您的店面空間需求"
     )
-    
+
     # 3. 租金預算
     rent_budget = st.slider(
         "選擇租金預算（每月）",
         min_value=10000,
-        max_value=2000000,
+        max_value=1000000,
         value=(20000, 50000),
         step=5000,
         help="選擇您的租金預算範圍"
     )
 
     # 4. 營業項目
-    business_type = st.multiselect(
+    business_type = st.selectbox(
         "選擇營業項目",
         options=[
             "農、林、漁、牧業", "礦業及土石採取業", "製造業", "電力及燃氣供應業", "用水供應及污染整治業",
@@ -276,83 +305,70 @@ def rent_store_page():
         ],
         help="選擇您的營業項目"
     )
+    st.session_state.selected_business_type = business_type
 
-    # 進行查詢 button
+    # 查詢按鈕
     if st.button("進行查詢"):
-        # 商圈資料
-        st.session_state.trade_area_details = [
-            {
-                "name": "商圈 A",
-                "type": "玩",
-                "address": "地址 A",
-                "rent": "93,000/月",
-                "rentals": [
-                    {"address": "出租地址 1", "rent": "73,000/月", "rent_ping": "2,433/坪", "size": "30 坪", "landlord": {"name": "章先生", "phone": "0927464741"}},
-                    {"address": "出租地址 2", "rent": "85,000/月", "rent_ping": "1,700/坪", "size": "50 坪", "landlord": {"name": "洪小姐", "phone": "0998876232"}},
-                ],
-            },
-            {
-                "name": "商圈 B",
-                "type": "吃",
-                "address": "地址 B",
-                "rent": "76,000/月",
-                "rentals": [
-                    {"address": "出租地址 3", "rent": "95,000/月", "rent_ping": "1,900/坪", "size": "50 坪", "landlord": {"name": "林先生", "phone": "0911234567"}},
-                    {"address": "出租地址 4", "rent": "78,000/月", "rent_ping": "2,600/坪", "size": "30 坪", "landlord": {"name": "張小姐", "phone": "0987654321"}},
-                ],
-            },
-        ]
+        organization_data_df = q.get_organization_data(district=selected_districts)
+        st.session_state.trade_area_details = organization_data_df.to_dict(orient='records')
         st.session_state.selected_trade_area = None
 
-    # 查詢結果
-    if "trade_area_details" in st.session_state:
-        st.subheader("商圈資訊")
-        for idx, area in enumerate(st.session_state.trade_area_details):
-            # 商圈資訊
-            with st.expander(f"{area['name']} - 周邊平均租金 {area['rent']}"):
-                st.write(f"**地址**: {area['address']}")
-                st.write(f"**類型**: {area['type']}")
+    # 分頁: 商圈資訊 和 出租案件
+    if st.session_state.trade_area_details:
+        tabs = st.tabs(["商圈資訊", "出租案件"])
 
-                # 建 button -- 顯示該商圈的店面出租資訊
-                if st.button(f"顯示 {area['name']} 附近店面出租資訊", key=f"show_rentals_{idx}"):
-                    st.session_state.selected_trade_area = area
+        # Tab 1: 商圈資訊
+        with tabs[0]:
+            st.subheader("商圈資訊")
+            for area in st.session_state.trade_area_details:
+                with st.expander(f"{area['name']} - 周邊平均租金 $ {int(area['average_monthly_rent'])}/月"):
+                    st.write(f"**地址**: {area['district']}")
+                    st.write(f"**類型**: {area['tag']}")
+                    st.write(f"**距離最近的捷運站**: {area['station_name']}")
 
-    # 店面出租資訊
-    if "selected_trade_area" in st.session_state and st.session_state.selected_trade_area:
-        area = st.session_state.selected_trade_area
-        st.subheader(f"{area['name']} 附近店面出租資訊")
-        rentals = area["rentals"]
+        # Tab 2: 出租案件
+        with tabs[1]:
+            st.subheader("出租案件")
+            rentals_df = q.get_filtered_shop_rentals(district=selected_districts,
+                min_rent=rent_budget[0], max_rent=rent_budget[1],
+                min_area=ping[0], max_area=ping[1]
+            )
+            rentals = rentals_df.to_dict(orient='records')
 
-        # 分成兩個 column 顯示
-        cols = st.columns(2)
-        for i, rental in enumerate(rentals):
-            col = cols[i % 2]
-            with col:
-                st.write(f"### {rental['address']} - {rental['rent']}")
-                st.write(f"**地址**: {rental['address']}")
-                st.write(f"**租金**: {rental['rent']} ({rental['rent_ping']})")
-                st.write(f"**坪數**: {rental['size']}")
+            cols = st.columns(2)
+            for i, rental in enumerate(rentals):
+                case_id = rental["case_id"]
+                col = cols[i % 2]
+                with col:
+                    st.write(f"### {rental['case_name']}")
+                    st.write(f"**地址**: {rental['address']} ({rental['village']})")
+                    st.write(f"**租金**: $ {rental['monthly_rent']}/月 ({int(rental['monthly_rent_per_ping'])}/坪)")
+                    st.write(f"**坪數**: {rental['area_ping']}")
+                    st.write(f"**樓層/總樓層**: {rental['shop_floor']}/{rental['total_floor']}")
+                    st.write(f"**押金**: $ {rental['deposit']}")
 
-                # 建兩個 button
-                btn_col1, btn_col2 = st.columns(2)
-                with btn_col1:
-                    if st.button(f"聯絡房仲", key=f"contact_{rental['address']}"):
-                        landlord = rental['landlord']
-                        st.write(f"聯絡人: {landlord['name']}")
-                        st.write(f"電話: {landlord['phone']}")
-                with btn_col2:
-                    if st.button(f"適不適合我開店", key=f"check_{rental['address']}"):
-                        st.session_state.selected_rental = rental
-                        st.session_state.page = "analysis_page"
+                    # 建 button
+                    btn_col1, btn_col2 = st.columns(2)
+                    with btn_col1:
+                        if st.button(f"聯絡房仲", key=f"contact_{rental['address']}_{rental['area_ping']}_{rental['phone']}"):
+                            # landlord = rental.get('landlord', {})
+                            st.write(f"聯絡人: {rental['name']}")
+                            st.write(f"電話: {rental['phone']}")
+                    with btn_col2:
+                        if st.button(f"適不適合我開店", key=f"check_{rental['address']}_{rental['area_ping']}_{rental['phone']}"):
+                            st.session_state.selected_rental = rental
+                            st.session_state.page = "analysis_page"
 
+    # 進行分析
     if st.session_state.get("page", None) == "analysis_page":
         st.session_state.page = None
-        # 兩個 tab
-        tabs = st.tabs(["商機分析", "競爭市場"])
-        with tabs[0]:
+        analysis_tabs = st.tabs(["商機分析", "競爭市場"])
+        with analysis_tabs[0]:
             opportunity_analysis_page()
-        with tabs[1]:
-            competitive_market_page()
+        with analysis_tabs[1]:
+            if "selected_districts" in st.session_state:
+                selected_districts = st.session_state.selected_districts
+            competitive_market_page(case_id=case_id, district=selected_districts)
 
 locations_data = {
     "地點": ["A區", "B區", "C區", "D區", "E區"],
