@@ -188,28 +188,28 @@ def competitive_market_page(case_id, district):
     # 根據條件選擇查詢方式
     if "selected_business_type" in st.session_state:
         selected_type = st.session_state["selected_business_type"]
-        df = q.get_competitive_data(district=district, village=target_village, type=selected_type)
+        subtype_df = q.get_competitive_data(district=district, village=target_village, type=selected_type)
     else:
-        df = q.get_top5_subtype_data(district=district, village=target_village)
+        subtype_df = q.get_top5_subtype_data(district=district, village=target_village)
     
     # 如果查無資料，顯示提示
-    if df.empty:
+    if subtype_df.empty:
         st.write("### 無競爭市場數據")
         st.write("目前該地區沒有相關的營業資料。")
         return
     
     # 變更欄位名稱
-    df = df.rename(columns={
+    subtype_df = subtype_df.rename(columns={
         "business_sub_type": "營業項目",
         "shop_cnt": "店舖數量",
         "avg_capital": "平均資本額"
     })
     
     # 單位：資本額(元) -> 資本額(萬元)
-    df["平均資本額"] = df["平均資本額"] // 10000
+    subtype_df["平均資本額"] = subtype_df["平均資本額"] // 10000
     
     # 按照店舖數量排序
-    df = df.sort_values(by="店舖數量", ascending=False)
+    subtype_df = subtype_df.sort_values(by="店舖數量", ascending=False)
 
     # 市場資料顯示
     st.write("### 競爭市場概覽：")
@@ -218,30 +218,30 @@ def competitive_market_page(case_id, district):
     col2.markdown("**店舖數量**")
     col3.markdown("**平均資本額 (萬元)**")
 
-    for _, row in df.iterrows():
+    for _, row in subtype_df.iterrows():
         col1, col2, col3 = st.columns([3, 3, 3])
         col1.write(row["營業項目"])
         col2.write(row["店舖數量"])
         col3.write(row["平均資本額"])
 
-    # # 顯示每個營業項目的 Top 5 店鋪
-    # store_df = pd.DataFrame(store_data)
-    # for business in market_df["營業項目"]:
-    #     st.write(f"### {business} 的 Top 5 資本額店鋪")
-    #     filtered_stores = store_df[store_df["營業項目"] == business].nlargest(5, "資本額")
+    # 顯示每個營業項目的 Top 5 店鋪
+    for business in subtype_df["營業項目"]:
+        st.write(f"### {business} 的 Top 5 資本額店鋪")
+        store_df = q.get_business_data(business, district, target_village)
+        filtered_stores = store_df.nlargest(5, "capital")
 
-    #     col1, col2, col3, col4 = st.columns([2, 5, 3, 3])
-    #     col1.markdown("**店名**")
-    #     col2.markdown("**地址**")
-    #     col3.markdown("**資本額 (萬元)**")
-    #     col4.markdown("**地圖**")
+        col1, col2, col3, col4 = st.columns([2, 5, 3, 3])
+        col1.markdown("**店名**")
+        col2.markdown("**地址**")
+        col3.markdown("**資本額 (萬元)**")
+        col4.markdown("**地圖**")
 
-    #     for _, row in filtered_stores.iterrows():
-    #         col1, col2, col3, col4 = st.columns([2, 5, 3, 3])
-    #         col1.write(row["店名"])
-    #         col2.write(row["地址"])
-    #         col3.write(row["資本額"])
-    #         col4.markdown(f"[Google 地圖連結](https://www.google.com/maps?q={row['緯度']},{row['經度']})", unsafe_allow_html=True)
+        for _, row in filtered_stores.iterrows():
+            col1, col2, col3, col4 = st.columns([2, 5, 3, 3])
+            col1.write(row["business_name"])
+            col2.write(row["address"])
+            col3.write(row["capital"])
+            col4.markdown(f"[Google 地圖連結](https://www.google.com/maps?q={row['latitude']},{row['longitude']})", unsafe_allow_html=True)
 
 def filter_stores_by_business(business_type, store_df):
     if business_type == "零售業":
@@ -392,7 +392,7 @@ def find_hotspot_page():
     st.subheader("請輸入理想條件")
 
     # 每日平均流動人潮
-    avg_traffic = st.slider("每日平均流動人潮 >= ", min_value=0, max_value=10, value=(0,5))
+    avg_traffic = st.slider("每日平均流動人潮 >= ", min_value=0, max_value=10)
 
     # 熱門時段（多選）
     popular_times = st.multiselect(
