@@ -3,7 +3,11 @@ import numpy as np
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-import query as q
+#import query as q
+import requests as re
+import random
+from api import con
+
 
 # 使用者資料儲存
 user_data = {"user_name": None, "phone": None, "email": None}
@@ -13,8 +17,9 @@ plt.rcParams['font.family'] = ['Heiti TC']
 
 # 每日平均人潮流動折線圖
 def crowd_flow_spectrum(case_id):
-    df = q.get_shop_flow_data(case_id=case_id)
-
+    #df = q.get_shop_flow_data(case_id=case_id)
+    data = re.get(url=f'http://127.0.0.1:8000/show_flow_data?case_id={case_id}').json()
+    df = pd.DataFrame(data)
     if 'time_period' not in df.columns or 'avg_total_flow' not in df.columns:
         st.error("Required columns not found in the data.")
         return
@@ -36,11 +41,15 @@ def crowd_flow_spectrum(case_id):
 # 住戶密度 & 收入水平分析
 def income_density_chart(case_id, district):
     # 查詢該 case_id 所在 village 的資訊
-    shop_flow_df = q.get_shop_flow_data(case_id=case_id)
+    #shop_flow_df = q.get_shop_flow_data(case_id=case_id)
+    data = re.get(url=f'http://127.0.0.1:8000/show_flow_data?case_id={case_id}').json()
+    shop_flow_df = pd.DataFrame(data)
     target_village = shop_flow_df['village'].iloc[0]
     
     # 查詢該區域所有 village 的資訊
-    village_df = q.get_village_data(district=district)
+    #village_df = q.get_village_data(district=district)
+    data = re.get(url=f'http://127.0.0.1:8000/village_data?district={district}').json()
+    village_df = pd.DataFrame(data)
     
     # 篩出目標 village 的數據
     target_data = village_df[village_df['village'] == target_village]
@@ -77,12 +86,15 @@ def income_density_chart(case_id, district):
 # 年齡層分析
 def age_distribution_page(case_id, district):
     # 流動人潮
-    shop_flow_df = q.get_shop_flow_data(case_id=case_id)
+    #shop_flow_df = q.get_shop_flow_data(case_id=case_id)
+    data = re.get(url=f'http://127.0.0.1:8000/show_flow_data?case_id={case_id}').json()
+    shop_flow_df = pd.DataFrame(data)
     target_village = shop_flow_df['village'].iloc[0]
     
     # 查詢該區域所有 village 資訊
-    village_df = q.get_village_data(district=district)
-    
+    #village_df = q.get_village_data(district=district)
+    data = re.get(url=f'http://127.0.0.1:8000/village_data?district={district}').json()
+    village_df = pd.DataFrame(data)
     # 篩出目標 village 數據
     target_data = village_df[village_df['village'] == target_village]
     
@@ -138,10 +150,15 @@ def compare_ratios(target_ratio, nearby_ratio):
 
 # 性別比例
 def gender_distribution_page(case_id, district):
-    shop_flow_df = q.get_shop_flow_data(case_id=case_id)
+    #shop_flow_df = q.get_shop_flow_data(case_id=case_id)
+    data = re.get(url=f'http://127.0.0.1:8000/show_flow_data?case_id={case_id}').json()
+    shop_flow_df = pd.DataFrame(data)
     target_village = shop_flow_df['village'].iloc[0]
     # 查詢該區域所有 village 資訊
-    village_df = q.get_village_data(district=district)
+    #village_df = q.get_village_data(district=district)
+    data = re.get(url=f'http://127.0.0.1:8000/village_data?district={district}').json()
+    village_df = pd.DataFrame(data)
+    
     target_data = village_df[village_df['village'] == target_village]
     male = target_data['male_population_ratio'].iloc[0]*100
     female = target_data['female_population_ratio'].iloc[0]*100
@@ -182,15 +199,21 @@ def opportunity_analysis_page():
 # 競爭市場
 def competitive_market_page(case_id, district):
     # 目標村里
-    shop_flow_df = q.get_shop_flow_data(case_id=case_id)
+    #shop_flow_df = q.get_shop_flow_data(case_id=case_id)
+    data = re.get(url=f'http://127.0.0.1:8000/show_flow_data?case_id={case_id}').json()
+    shop_flow_df = pd.DataFrame(data)
     target_village = shop_flow_df['village'].iloc[0]
     
     # 根據條件選擇查詢方式
     if "selected_business_type" in st.session_state:
         selected_type = st.session_state["selected_business_type"]
-        subtype_df = q.get_competitive_data(district=district, village=target_village, type=selected_type)
+        #subtype_df = q.get_competitive_data(district=district, village=target_village, type=selected_type)
+        data = re.get(url=f'http://127.0.0.1:8000/competitive_data?district={district}&village={target_village}&type={selected_type}').json()
+        subtype_df = pd.DataFrame(data)
     else:
-        subtype_df = q.get_top5_subtype_data(district=district, village=target_village)
+        #subtype_df = q.get_top5_subtype_data(district=district, village=target_village)
+        data = re.get(url=f'http://127.0.0.1:8000/top5_subtype_data?district={district}&village={target_village}').json()
+        subtype_df = pd.DataFrame(data)
     
     # 如果查無資料，顯示提示
     if subtype_df.empty:
@@ -227,7 +250,10 @@ def competitive_market_page(case_id, district):
     # 顯示每個營業項目的 Top 5 店鋪
     for business in subtype_df["營業項目"]:
         st.write(f"### {business} 的 Top 5 資本額店鋪")
-        store_df = q.get_business_data(business, district, target_village)
+        #store_df = q.get_business_data(business, district, target_village)
+        data = re.get(url=f'http://127.0.0.1:8000/business_data?business={business}&district={district}&village={target_village}').json()
+        store_df = pd.DataFrame(data)
+        
         filtered_stores = store_df.nlargest(5, "capital")
 
         col1, col2, col3, col4 = st.columns([2, 5, 3, 3])
@@ -242,6 +268,14 @@ def competitive_market_page(case_id, district):
             col2.write(row["address"])
             col3.write(row["capital"])
             col4.markdown(f"[Google 地圖連結](https://www.google.com/maps?q={row['latitude']},{row['longitude']})", unsafe_allow_html=True)
+
+def filter_stores_by_business(business_type, store_df):
+    if business_type == "零售業":
+        return store_df[store_df["店名"].isin(["店鋪A", "店鋪B", "店鋪C"])]
+    elif business_type == "餐飲業":
+        return store_df[store_df["店名"].isin(["店鋪D", "店鋪E", "店鋪F"])]
+    else:
+        return pd.DataFrame()
 
 def rent_store_page():
     st.title("🔍 我要租店面")
@@ -301,7 +335,9 @@ def rent_store_page():
 
     # 查詢按鈕
     if st.button("進行查詢"):
-        organization_data_df = q.get_organization_data(district=selected_districts)
+        #organization_data_df = q.get_organization_data(district=selected_districts)
+        data = re.get(url=f'http://127.0.0.1:8000/organization_data?district={selected_districts}').json()
+        organization_data_df = pd.DataFrame(data)
         st.session_state.trade_area_details = organization_data_df.to_dict(orient='records')
         st.session_state.selected_trade_area = None
 
@@ -321,11 +357,12 @@ def rent_store_page():
         # Tab 2: 出租案件
         with tabs[1]:
             st.subheader("出租案件")
-            rentals_df = q.get_filtered_shop_rentals(district=selected_districts,
-                min_rent=rent_budget[0], max_rent=rent_budget[1],
-                min_area=ping[0], max_area=ping[1]
-            )
-            rentals = rentals_df.to_dict(orient='records')
+            # rentals_df = q.get_filtered_shop_rentals(district=selected_districts,
+            #     min_rent=rent_budget[0], max_rent=rent_budget[1],
+            #     min_area=ping[0], max_area=ping[1]
+            # )
+            # rentals = rentals_df.to_dict(orient='records')
+            rentals = re.get(url=f"http://127.0.0.1:8000/filtered_shop_rentals?district={selected_districts}&min_rent={rent_budget[0]}&max_rent={rent_budget[1]}&min_area={ping[0]}&max_area={ping[1]}").json()
 
             cols = st.columns(2)
             for i, rental in enumerate(rentals):
@@ -362,21 +399,6 @@ def rent_store_page():
                 selected_districts = st.session_state.selected_districts
             competitive_market_page(case_id=case_id, district=selected_districts)
 
-locations_data = {
-    "地點": ["A區", "B區", "C區", "D區", "E區"],
-    "每日平均流動人潮": [1000, 5000, 3000, 1500, 4500],
-    "熱門時段": [
-        ["10:00-12:00", "18:00-20:00"],
-        ["09:00-11:00", "14:00-16:00"],
-        ["08:00-10:00", "20:00-22:00"],
-        ["11:00-13:00", "17:00-19:00"],
-        ["12:00-14:00", "19:00-21:00"]
-    ]
-}
-
-locations_df = pd.DataFrame(locations_data)
-
-# 頁面設定：我是業者 -> 我要找熱點
 def find_hotspot_page():
     st.title("📍我要找熱點")
 
@@ -386,208 +408,117 @@ def find_hotspot_page():
     # 每日平均流動人潮
     expected_flow_rank = st.slider("每日平均流動人潮量 ", min_value=0, max_value=10)
 
-    # 熱門時段（多選）
-    popular_times = st.multiselect(
-        "熱門時段",
-        ["06:00-08:00", "08:00-10:00", "10:00-12:00", "12:00-14:00", "14:00-16:00",
-         "16:00-18:00", "18:00-20:00", "20:00-22:00", "22:00-24:00", "24:00-02:00"]
-    )
-    # 轉成數字
-    time_to_number = {
-    "06:00-08:00": 3,
-    "08:00-10:00": 4,
-    "10:00-12:00": 5,
-    "12:00-14:00": 6,
-    "14:00-16:00": 7,
-    "16:00-18:00": 8,
-    "18:00-20:00": 9,
-    "20:00-22:00": 10,
-    "22:00-24:00": 11,
-    "24:00-02:00": 12
-    }
-    converted_times = [time_to_number[time] for time in popular_times]
-    
-    locations_df = q.get_organization_flow_data(expected_flow_rank, converted_times)
-    # 篩選符合條件的地點
+    # Fetch data
+    data = re.get(url=f'http://127.0.0.1:8000/organization_flow_data?rank={expected_flow_rank}').json()
+    business_area_df = pd.DataFrame(data)
+    st.session_state.business_area = 1
 
-    # 按 business_area_name 分組，加總流量，合併鄰近捷運站
-    grouped = (
-        locations_df
-        .groupby("business_area_name")
-        .agg({
-            "district": "first",  # 取地區
-            "flow": "sum",  # 計算總流量
-            "mrt_station": lambda x: ", ".join(x.unique())  # 合併捷運站名稱
-        })
-        .reset_index()
-    )
+    # Display hotspots if state exists
+    if st.session_state.business_area:
+        st.write("## 每日平均流動人潮前五名的商圈")
+        col1, col2, col3, col4, col6 = st.columns([3, 4, 4, 4, 2])
+        col1.markdown("**商圈**")
+        col2.markdown("**每日平均流動人潮**")
+        col3.markdown("**人流十分位數**")
+        col4.markdown("**商圈類型**")
+        col6.markdown("**操作**")
 
-    grouped = grouped.rename(columns={
-        "business_area_name": "商圈",
-        "district": "地區",
-        "flow": "每日平均流動人潮",
-        "mrt_station": "鄰近捷運站"
-    })
+        for _, row in business_area_df.iterrows():
+            with st.container():
+                col1, col2, col3, col4, col6 = st.columns([3, 4, 4, 4, 2])
+                col1.text(row["name"])
+                col2.text(row["avg_daily_cnt"])
+                col3.text(row["rank"])
+                col4.text(row["tag"])
+                if col6.button("查看詳情", key=row["name"]):
+                    st.session_state["selected_hotspot"] = row["name"]
+                    st.session_state["page"] = "rental_info"
 
-    # 按每日平均流動人潮降序排序，取前五名
-    top_5_grouped = grouped.sort_values(by="每日平均流動人潮", ascending=False).head(5)
+            # Show rental info if a hotspot is selected
+            if st.session_state.get("page") == "rental_info":
+                show_rental_info(st.session_state["selected_hotspot"])
 
-    st.write("## 每日平均流動人潮前五名的商圈")
-    col1, col2, col3, col4, col5 = st.columns([3, 4, 4, 3, 4])
-    col1.markdown("**地區**")
-    col2.markdown("**商圈**")
-    col3.markdown("**鄰近捷運站**")
-    col4.markdown("**每日平均流動人潮**")
-    col5.markdown("**操作**")
-
-    for _, row in top_5_grouped.iterrows():
-        with st.container():
-            col1, col2, col3, col4, col5 = st.columns([3, 4, 4, 3, 4])
-            col1.text(row["地區"])
-            col2.text(row["商圈"])
-            col3.text(row["鄰近捷運站"])
-            col4.text(row["每日平均流動人潮"])
-            # 按鈕操作
-            if col5.button("查看詳情", key=row["商圈"]):
-                st.write(f"查看出租案件")
-
-# 顯示出租資訊
 def show_rental_info(location):
     st.subheader(f"在 {location} 附近的店面出租資訊")
+    rentals = re.get(url=f'http://127.0.0.1:8000/business_area_shop_rentals?business_area={location}').json()
 
-    # 假資訊
-    rental_info = {
-        "店面名稱": ["店面A", "店面B", "店面C"],
-        "租金": ["50000元/月", "60000元/月", "55000元/月"],
-        "面積": ["30㎡", "40㎡", "35㎡"],
-        "聯絡房仲": ["胡先生", "洪小姐", "馮先生"],
-        "聯絡方式": ["0922-xxxxxx", "0933-xxxxxx", "0911-xxxxxx"]
-    }
+    # Initialize session state
+    if "selected_rental" not in st.session_state:
+        st.session_state["selected_rental"] = None
 
-    rental_df = pd.DataFrame(rental_info)
-
-    # 顯示表頭
-    col1, col2, col3, col4, col5 = st.columns([3, 3, 2, 3, 3])
-    col1.markdown("**店面名稱**")
-    col2.markdown("**租金**")
-    col3.markdown("**面積**")
-    col4.markdown("**聯絡房仲**")
-    col5.markdown("**聯絡方式**")
-
-    # 一列一列顯示資訊
-    for idx, row in rental_df.iterrows():
-        col1, col2, col3, col4, col5 = st.columns([3, 3, 3, 3, 2])
-        col1.write(row['店面名稱'])
-        col2.write(row['租金'])
-        col3.write(row['面積'])
-        col4.write(row['聯絡房仲'])
-        col5.write(row['聯絡方式'])
+    # Display rental information in two columns
+    cols = st.columns(2)
+    for i, rental in enumerate(rentals):
+        col = cols[i % 2]
+        with col:
+            st.write(f"### {rental['case_name']}")
+            st.write(f"**地址**: {rental['address']} ({rental['village']})")
+            st.write(f"**租金**: $ {rental['monthly_rent']}/月")
+            st.write(f"**坪數**: {rental['area_ping']}")
+            st.write(f"**樓層/總樓層**: {rental['shop_floor']}/{rental['total_floor']}")
+            st.write(f"**押金**: $ {rental['deposit']}")
+            # Buttons for actions
+            btn_col1, _ = st.columns(2)
+            with btn_col1:
+                if st.button(f"聯絡房仲", key=f"contact_{rental['case_id']}"):
+                    st.write(f"聯絡人: {rental['name']}")
+                    st.write(f"電話: {rental['phone']}")
+            
 
 # 房東新增出租 case
-def add_case():
+def add_case(phone):
     st.subheader("請填寫出租店面的資料：")
-
-    if 'address' not in st.session_state:
-        st.session_state.address = ''
-    if 'area' not in st.session_state:
-        st.session_state.area = ''
-    if 'floor' not in st.session_state:
-        st.session_state.floor = ''
-    if 'rent' not in st.session_state:
-        st.session_state.rent = ''
-
     # required fields
-    st.session_state.address = st.text_input("地址 (必填)", value=st.session_state.address)
-    st.session_state.area = st.text_input("坪數 (必填)", placeholder="例如：30坪", value=st.session_state.area)
-    st.session_state.floor = st.text_input("樓層 (必填)", placeholder="例如：1樓", value=st.session_state.floor)
-    st.session_state.rent = st.text_input("理想租金 (必填)", placeholder="例如：30000元/月", value=st.session_state.rent)
+    st.session_state.case_name = st.text_input("案件名稱")
+    st.session_state.address = st.text_input("地址")
+    st.session_state.district = st.session_state.address[:3]
+    st.session_state.village  = st.session_state.address[3:6]
+    st.session_state.longitude = st.text_input("經度")
+    st.session_state.latitude = st.text_input("緯度")
+    st.session_state.rent = st.text_input("理想租金", placeholder="例如：30000元/月")
+    st.session_state.deposit = st.text_input("押金", placeholder="例如：60000元")
+    st.session_state.area = st.text_input("坪數", placeholder="例如：30坪")
+    st.session_state.shop_floor = st.text_input("店面樓層", placeholder="例如：1樓")
+    st.session_state.total_floor = st.text_input("總樓層", placeholder="例如：5樓")
+    
 
-    # 確定交出資料 button
-    if st.button("提交表單"):
-        if not st.session_state.address or not st.session_state.area or not st.session_state.floor or not st.session_state.rent or st.session_state.shop_type == "請選擇":
-            st.error("請確保所有必填欄位已填寫完整！")
-        else:
-            st.success("表單已提交！以下是您輸入的資料：")
-            st.write(f"**地址**: {st.session_state.address}")
-            st.write(f"**坪數**: {st.session_state.area}")
-            st.write(f"**樓層**: {st.session_state.floor}")
-            st.write(f"**理想租金**: {st.session_state.rent}")
-
-# 編輯/更新頁面
 def edit_case(case):
-    """Displays a form to edit the selected case details."""
     st.subheader(f"編輯出租案件：{case['case_id']}")
-
+        
+    # 使用 st.form 建立輸入表單
     if 'address' not in st.session_state:
         st.session_state.address = case['address']
     if 'size' not in st.session_state:
-        st.session_state.size = case['size']
+        st.session_state.size = case['area_ping']
     if 'floor' not in st.session_state:
-        st.session_state.floor = case['floor']
+        st.session_state.floor = case['shop_floor']
     if 'rent' not in st.session_state:
-        st.session_state.rent = case['ideal_rent']
+        st.session_state.rent = case['monthly_rent']
 
     st.session_state.address = st.text_input("地址", value=st.session_state.address)
     st.session_state.size = st.text_input("坪數 (坪)", value=st.session_state.size)
     st.session_state.floor = st.text_input("樓層", value=st.session_state.floor)
-    st.session_state.rent = st.text_input("理想租金 (元)", value=st.session_state.rent)
+    rent = st.text_input("理想租金 (元)", value=st.session_state.rent)
 
-    # status update
+    # 狀態選擇
     st.markdown("### 更新狀態")
-    status = st.radio(
-        "選擇新的狀態:",    
-        ("尚未出租", "撤回案件", "已出租", "洽談中"),
-        index=["尚未出租", "已下架", "已出租", "洽談中"].index(case['status'])
+    st.session_state.status = st.radio(
+        "目前可供出租:",    
+        (True, False)
     )
+    con.sql(f"UPDATE pg.shop_rental_listing SET monthly_rent = {case['monthly_rent']*10} WHERE case_id = {case['case_id']}")
 
-    # submit button
-    if st.button("OK"):
-        # case update
-        st.success("案件已成功更新！")
-        st.write({
-            "地址": st.session_state.address,
-            "坪數": st.session_state.size,
-            "樓層": st.session_state.floor,
-            "理想租金": st.session_state.rent,
-            "狀態": status
-        })
+
 
 # 頁面設定：我是房東
-def landlord_page():
+def landlord_page(phone):
     st.title("房東管理頁面")
 
     # "我要出租店面" button
     with st.sidebar:
         if st.button("我要出租店面"):
-            add_case()
-
-    # 假資料
-    landlord_cases = [
-        {
-            "case_id": "C001",
-            "address": "台北市信義區松仁路123號",
-            "size": 50,
-            "floor": "1樓",
-            "ideal_rent": 50000,
-            "status": "已出租"
-        },
-        {
-            "case_id": "C002",
-            "address": "台北市中正區公園路30-1號",
-            "size": 30,
-            "floor": "2樓",
-            "ideal_rent": 30000,
-            "status": "尚未出租"
-        },
-        {
-            "case_id": "C003",
-            "address": "台北市大安區新生南路三段88之2號",
-            "size": 100,
-            "floor": "1樓",
-            "ideal_rent": 80000,
-            "status": "已下架"
-        },
-    ]
+            add_case(phone)
+    landlord_cases = re.get(url=f"http://127.0.0.1:8000/landlord_info?phone={phone}").json()
 
     st.subheader("既有出租案件")
     col1, col2 = st.columns(2)
@@ -595,11 +526,16 @@ def landlord_page():
         with (col1 if idx % 2 == 0 else col2):
             # 顯示每一筆出租案件的資訊
             st.write(f"### 案件編號: {case['case_id']}")
+            st.write(f"### 案件名稱: {case['case_name']}")
             st.write(f"地址: {case['address']}")
-            st.write(f"坪數: {case['size']} 坪")
-            st.write(f"樓層: {case['floor']}")
-            st.write(f"理想租金: {case['ideal_rent']} 元/月")
-            st.write(f"交易狀態: {case['status']}")
+            st.write(f"經度: {case['longitude']}")
+            st.write(f"緯度: {case['latitude']}")
+            st.write(f"理想租金: {case['monthly_rent']} 元/月")
+            st.write(f"押金: {case['deposit']} 元")
+            st.write(f"坪數: {case['area_ping']} 坪")
+            st.write(f"樓層: {case['shop_floor']}")
+            st.write(f"總樓層: {case['total_floor']}")
+            st.write(f"目前可供出租: {case['is_available']}")
 
             # 編輯/更新按鈕
             if st.button("編輯/更新", key=case['case_id']):
@@ -613,10 +549,10 @@ def login_page():
     phone_number = st.text_input("請輸入您的電話號碼")
     if st.button("登入"):
         if phone_number:
-            st.success("登入成功！")
             st.session_state.logged_in = True
         else:
             st.error("請輸入電話號碼！")
+    return phone_number
 
 def business_page():
     st.title("我是業者")
@@ -655,9 +591,9 @@ def main():
     # 如果是房東
     elif st.session_state.role == "landlord":
         if not st.session_state.logged_in:
-            login_page()
-        else:
-            landlord_page()
+            phone = login_page()
+            if phone:
+                landlord_page(phone)
 
 if __name__ == "__main__":
     main()
