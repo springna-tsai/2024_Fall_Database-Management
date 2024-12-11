@@ -63,6 +63,8 @@
 
 1. **使用備份檔 Group28_data.backup 復原資料庫**
 
+**安裝完成後可以看 demo 影片的操作展示 8:40 秒開始 (https://youtu.be/-Df-YwzGA_c)**
+
 2. **開啟server**
    ```bash
    uvicorn api:app 
