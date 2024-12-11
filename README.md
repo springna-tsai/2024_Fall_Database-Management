@@ -65,4 +65,9 @@
    ```bash
    git clone https://github.com/你的用戶名/SmartRent.git
    cd SmartRent
-
+2. **開啟server**
+   ```bash
+   uvicorn api:app 
+3. **開啟client**
+   ```bash
+   streamlit run app.py
