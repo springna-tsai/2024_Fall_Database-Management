@@ -61,10 +61,10 @@
 
 #### **安裝步驟**
 
-1. **克隆專案**
+1. **clone專案**
    ```bash
-   git clone https://github.com/你的用戶名/SmartRent.git
-   cd SmartRent
+   git clone https://github.com/springna-tsai/2024_Fall_Database-Management
+   cd 2024_Fall_Database-Management
 2. **開啟server**
    ```bash
    uvicorn api:app 
